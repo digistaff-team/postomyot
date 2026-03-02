@@ -3,11 +3,8 @@ import { readNextRow, deleteRow2 } from '@/lib/google-sheets';
 import {
   generatePostText,
   generateTitle,
-  generateImagePrompt,
-  generateHook,
-  generateImage,
 } from '@/lib/protalk';
-import { sendMessage, sendPhoto, sendVideo } from '@/lib/telegram';
+import { sendMessage } from '@/lib/telegram';
 import { savePostHistory } from '@/lib/neon';
 
 export const maxDuration = 60;
@@ -22,10 +19,10 @@ export async function GET(req: NextRequest) {
   }
 
   let topic = '';
-  let postType: 'text' | 'photo' | 'video' = 'text';
+  const postType: 'text' | 'photo' | 'video' = 'text'; // ДИАГНОСТИКА: принудительно text
 
   try {
-    const { topic: t, video_url } = await readNextRow();
+    const { topic: t } = await readNextRow();
     topic = t;
 
     if (!topic) {
@@ -38,29 +35,8 @@ export async function GET(req: NextRequest) {
     ]);
     const caption = `${title}\n\n${text}`;
 
-    // 0=Вс, 1=Пн, 2=Вт, 3=Ср, 4=Чт, 5=Пт, 6=Сб
-    const day = new Date().getDay();
+    await sendMessage(caption);
 
-    if (day === 2 || day === 6) {
-      // Вторник / Суббота → Видео
-      postType = 'video';
-      await sendVideo(video_url, caption);
-    } else if (day === 1 || day === 3) {
-      // Понедельник / Среда → Фото
-      postType = 'photo';
-      const [imgPrompt, hook] = await Promise.all([
-        generateImagePrompt(topic),
-        generateHook(topic),
-      ]);
-      const imageUrl = await generateImage(imgPrompt, hook);
-      await sendPhoto(imageUrl, caption);
-    } else {
-      // Чт / Пт / Вс → Текст
-      postType = 'text';
-      await sendMessage(caption);
-    }
-
-    // Удалить строку 2 и сохранить результат
     try { await deleteRow2(); } catch (_) {}
 
     await savePostHistory({
