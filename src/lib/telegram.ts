@@ -2,20 +2,29 @@ const TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
 const CHAT = '@bot_test_alex';
 const BASE = `https://api.telegram.org/bot${TOKEN}`;
 
-export async function sendMessage(caption: string) {
-  await fetch(`${BASE}/sendMessage`, {
+async function checkTgResponse(res: Response, method: string) {
+  const data = await res.json();
+  if (!data.ok) {
+    throw new Error(`Telegram ${method} error ${data.error_code}: ${data.description}`);
+  }
+  return data;
+}
+
+export async function sendMessage(text: string) {
+  const res = await fetch(`${BASE}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       chat_id: CHAT,
-      text: caption,
+      text,
       parse_mode: 'HTML',
     }),
   });
+  await checkTgResponse(res, 'sendMessage');
 }
 
 export async function sendPhoto(imageUrl: string, caption: string) {
-  await fetch(`${BASE}/sendPhoto`, {
+  const res = await fetch(`${BASE}/sendPhoto`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -25,6 +34,7 @@ export async function sendPhoto(imageUrl: string, caption: string) {
       parse_mode: 'HTML',
     }),
   });
+  await checkTgResponse(res, 'sendPhoto');
 }
 
 // Стриминг видео без буферизации в память
@@ -40,5 +50,6 @@ export async function sendVideo(videoUrl: string, caption: string) {
   // @ts-expect-error ReadableStream совместим с FormData в Node 18+
   form.append('video', videoResponse.body, { filename: 'video.mp4', contentType: 'video/mp4' });
 
-  await fetch(`${BASE}/sendVideo`, { method: 'POST', body: form });
+  const res = await fetch(`${BASE}/sendVideo`, { method: 'POST', body: form });
+  await checkTgResponse(res, 'sendVideo');
 }
