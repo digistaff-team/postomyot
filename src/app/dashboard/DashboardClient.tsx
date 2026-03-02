@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 
 type PostType = 'text' | 'photo' | 'video';
 type PostStatus = 'success' | 'error';
@@ -26,7 +26,9 @@ export default function DashboardClient({ password }: { password: string }) {
   const [history, setHistory] = useState<HistoryRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
+  const [elapsed, setElapsed] = useState(0);
   const [lastResult, setLastResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchData = useCallback(async () => {
     setFetching(true);
@@ -49,10 +51,22 @@ export default function DashboardClient({ password }: { password: string }) {
   const handleProcess = async () => {
     setLoading(true);
     setLastResult(null);
+    setElapsed(0);
+
+    timerRef.current = setInterval(() => {
+      setElapsed((s) => s + 1);
+    }, 1000);
+
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 90_000);
+
       const res = await fetch('/api/process-next-post', {
         headers: { Authorization: `Bearer ${password}` },
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
+
       const data = await res.json();
       if (res.ok) {
         setLastResult({
@@ -63,9 +77,15 @@ export default function DashboardClient({ password }: { password: string }) {
         setLastResult({ ok: false, message: data.error ?? 'Неизвестная ошибка' });
       }
       await fetchData();
-    } catch (e) {
-      setLastResult({ ok: false, message: 'Ошибка сети' });
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name === 'AbortError') {
+        setLastResult({ ok: false, message: 'Таймаут 90с — проверьте Telegram вручную' });
+      } else {
+        setLastResult({ ok: false, message: 'Ошибка сети' });
+      }
+      await fetchData();
     } finally {
+      if (timerRef.current) clearInterval(timerRef.current);
       setLoading(false);
     }
   };
@@ -122,7 +142,7 @@ export default function DashboardClient({ password }: { password: string }) {
             {loading ? (
               <>
                 <span className="animate-spin">⏳</span>
-                Обрабатываю...
+                Обрабатываю... {elapsed}s
               </>
             ) : (
               '▶️ Обработать сейчас'
