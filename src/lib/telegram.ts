@@ -1,5 +1,5 @@
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
-const CHAT = '@blabluf';
+const CHAT = '@bot_test_alex';
 const BASE = `https://api.telegram.org/bot${TOKEN}`;
 
 export async function sendMessage(caption: string) {
