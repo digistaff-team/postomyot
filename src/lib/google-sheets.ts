@@ -3,7 +3,7 @@ import { GoogleAuth } from 'google-auth-library';
 const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON!);
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID!;
 const BASE = 'https://sheets.googleapis.com/v4/spreadsheets';
-const SHEET = encodeURIComponent('Лист тем курс 4');
+const SHEET = encodeURIComponent('Лист1');
 
 async function getToken() {
   console.log('[Sheets] Getting OAuth token...');
