@@ -3,6 +3,7 @@ import { GoogleAuth } from 'google-auth-library';
 const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON!);
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID!;
 const BASE = 'https://sheets.googleapis.com/v4/spreadsheets';
+const SHEET = encodeURIComponent('Лист тем курс 4');
 
 async function getToken() {
   const auth = new GoogleAuth({
@@ -18,7 +19,7 @@ async function getToken() {
 export async function readNextRow() {
   const token = await getToken();
   const res = await fetch(
-    `${BASE}/${SPREADSHEET_ID}/values/Лист1!A2:B2`,
+    `${BASE}/${SPREADSHEET_ID}/values/${SHEET}!A2:B2`,
     { headers: { Authorization: `Bearer ${token}` } }
   );
   const data = await res.json();
@@ -30,7 +31,7 @@ export async function readNextRow() {
 export async function readQueue() {
   const token = await getToken();
   const res = await fetch(
-    `${BASE}/${SPREADSHEET_ID}/values/Лист1!A2:A`,
+    `${BASE}/${SPREADSHEET_ID}/values/${SHEET}!A2:A`,
     { headers: { Authorization: `Bearer ${token}` } }
   );
   const data = await res.json();
