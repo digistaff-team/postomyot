@@ -56,16 +56,25 @@ export async function GET(req: NextRequest) {
     const day = new Date().getDay();
     console.log(`[DAY CHECK] Current day of week is ${day}`);
 
-    if (day === 2 || day === 6) {
-      // Вторник / Суббота → Видео
+    // Логика: если день видео, но ссылки нет -> переключаемся на фото
+    const isVideoDay = day === 2 || day === 6;
+    const isPhotoDay = day === 1 || day === 3;
+    const hasVideo = !!video_url && video_url.trim() !== '' && video_url !== 'undefined';
+
+    if (isVideoDay && hasVideo) {
+      // Вторник / Суббота + есть ссылка → Видео
       postType = 'video';
       console.log(`[STEP 3] Sending VIDEO to Telegram...`);
       const start3 = Date.now();
       await sendVideo(video_url, caption);
       console.log(`[STEP 3 DONE] Sent VIDEO in ${Date.now() - start3}ms`);
-    } else if (day === 1 || day === 3) {
-      // Понедельник / Среда → Фото
+    } else if (isPhotoDay || (isVideoDay && !hasVideo)) {
+      // Понедельник / Среда ИЛИ (день видео, но ссылки нет) → Фото
       postType = 'photo';
+      if (isVideoDay && !hasVideo) {
+         console.log(`[FALLBACK] Video day but no URL found. Falling back to PHOTO.`);
+      }
+
       console.log(`[STEP 3A] Generating image prompt and hook...`);
       const start3a = Date.now();
       const [imgPrompt, hook] = await Promise.all([
