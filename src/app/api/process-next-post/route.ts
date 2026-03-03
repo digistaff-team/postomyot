@@ -3,8 +3,11 @@ import { readNextRow, deleteRow2 } from '@/lib/google-sheets';
 import {
   generatePostText,
   generateTitle,
+  generateImagePrompt,
+  generateHook,
+  generateImage,
 } from '@/lib/protalk';
-import { sendMessage } from '@/lib/telegram';
+import { sendMessage, sendPhoto, sendVideo } from '@/lib/telegram';
 import { savePostHistory } from '@/lib/neon';
 
 export const maxDuration = 60;
@@ -23,14 +26,14 @@ export async function GET(req: NextRequest) {
   console.log('[AUTH] Authorized');
 
   let topic = '';
-  const postType: 'text' | 'photo' | 'video' = 'text';
+  let postType: 'text' | 'photo' | 'video' = 'text';
 
   try {
     console.log('[STEP 1] Reading next row from Google Sheets...');
     const start1 = Date.now();
-    const { topic: t } = await readNextRow();
+    const { topic: t, video_url } = await readNextRow();
     topic = t;
-    console.log(`[STEP 1 DONE] Sheets read in ${Date.now() - start1}ms, topic: "${topic}"`);
+    console.log(`[STEP 1 DONE] Sheets read in ${Date.now() - start1}ms, topic: "${topic}", video_url: "${video_url}"`);
 
     if (!topic) {
       console.log('[EMPTY] Queue is empty');
@@ -49,10 +52,47 @@ export async function GET(req: NextRequest) {
 
     const caption = `${title}\n\n${text}`;
 
-    console.log('[STEP 3] Sending message to Telegram...');
-    const start3 = Date.now();
-    await sendMessage(caption);
-    console.log(`[STEP 3 DONE] Sent in ${Date.now() - start3}ms`);
+    // 0=Вс, 1=Пн, 2=Вт, 3=Ср, 4=Чт, 5=Пт, 6=Сб
+    const day = new Date().getDay();
+    console.log(`[DAY CHECK] Current day of week is ${day}`);
+
+    if (day === 2 || day === 6) {
+      // Вторник / Суббота → Видео
+      postType = 'video';
+      console.log(`[STEP 3] Sending VIDEO to Telegram...`);
+      const start3 = Date.now();
+      await sendVideo(video_url, caption);
+      console.log(`[STEP 3 DONE] Sent VIDEO in ${Date.now() - start3}ms`);
+    } else if (day === 1 || day === 3) {
+      // Понедельник / Среда → Фото
+      postType = 'photo';
+      console.log(`[STEP 3A] Generating image prompt and hook...`);
+      const start3a = Date.now();
+      const [imgPrompt, hook] = await Promise.all([
+        generateImagePrompt(topic),
+        generateHook(topic),
+      ]);
+      console.log(`[STEP 3A DONE] Prompt & hook generated in ${Date.now() - start3a}ms`);
+      console.log(`  Prompt: ${imgPrompt.slice(0, 50)}...`);
+      console.log(`  Hook: ${hook}`);
+
+      console.log(`[STEP 3B] Generating image via ProTalk...`);
+      const start3b = Date.now();
+      const imageUrl = await generateImage(imgPrompt, hook);
+      console.log(`[STEP 3B DONE] Image generated in ${Date.now() - start3b}ms. URL: ${imageUrl}`);
+
+      console.log(`[STEP 3C] Sending PHOTO to Telegram...`);
+      const start3c = Date.now();
+      await sendPhoto(imageUrl, caption);
+      console.log(`[STEP 3C DONE] Sent PHOTO in ${Date.now() - start3c}ms`);
+    } else {
+      // Чт / Пт / Вс → Текст
+      postType = 'text';
+      console.log('[STEP 3] Sending TEXT to Telegram...');
+      const start3 = Date.now();
+      await sendMessage(caption);
+      console.log(`[STEP 3 DONE] Sent TEXT in ${Date.now() - start3}ms`);
+    }
 
     console.log('[STEP 4] Deleting row from Sheets...');
     const start4 = Date.now();
