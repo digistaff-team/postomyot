@@ -10,7 +10,8 @@ import {
 import { sendMessage, sendPhoto, sendVideo } from '@/lib/telegram';
 import { savePostHistory } from '@/lib/neon';
 
-export const maxDuration = 60;
+// Увеличиваем лимит выполнения Vercel Function (работает на Pro-тарифе)
+export const maxDuration = 120;
 
 export async function GET(req: NextRequest) {
   console.log('[START] process-next-post handler started');
@@ -75,25 +76,34 @@ export async function GET(req: NextRequest) {
          console.log(`[FALLBACK] Video day but no URL found. Falling back to PHOTO.`);
       }
 
-      console.log(`[STEP 3A] Generating image prompt and hook...`);
-      const start3a = Date.now();
-      const [imgPrompt, hook] = await Promise.all([
-        generateImagePrompt(topic),
-        generateHook(topic),
-      ]);
-      console.log(`[STEP 3A DONE] Prompt & hook generated in ${Date.now() - start3a}ms`);
-      console.log(`  Prompt: ${imgPrompt.slice(0, 50)}...`);
-      console.log(`  Hook: ${hook}`);
+      try {
+        console.log(`[STEP 3A] Generating image prompt and hook...`);
+        const start3a = Date.now();
+        const [imgPrompt, hook] = await Promise.all([
+          generateImagePrompt(topic),
+          generateHook(topic),
+        ]);
+        console.log(`[STEP 3A DONE] Prompt & hook generated in ${Date.now() - start3a}ms`);
+        console.log(`  Prompt: ${imgPrompt.slice(0, 50)}...`);
+        console.log(`  Hook: ${hook}`);
 
-      console.log(`[STEP 3B] Generating image via ProTalk...`);
-      const start3b = Date.now();
-      const imageUrl = await generateImage(imgPrompt, hook);
-      console.log(`[STEP 3B DONE] Image generated in ${Date.now() - start3b}ms. URL: ${imageUrl}`);
+        console.log(`[STEP 3B] Generating image via ProTalk...`);
+        const start3b = Date.now();
+        const imageUrl = await generateImage(imgPrompt, hook);
+        console.log(`[STEP 3B DONE] Image generated in ${Date.now() - start3b}ms. URL: ${imageUrl}`);
 
-      console.log(`[STEP 3C] Sending PHOTO to Telegram...`);
-      const start3c = Date.now();
-      await sendPhoto(imageUrl, caption);
-      console.log(`[STEP 3C DONE] Sent PHOTO in ${Date.now() - start3c}ms`);
+        console.log(`[STEP 3C] Sending PHOTO to Telegram...`);
+        const start3c = Date.now();
+        await sendPhoto(imageUrl, caption);
+        console.log(`[STEP 3C DONE] Sent PHOTO in ${Date.now() - start3c}ms`);
+      } catch (imgError) {
+        console.error(`[IMAGE ERROR] Failed to generate/send photo:`, imgError);
+        console.log(`[FALLBACK 2] Falling back to TEXT post...`);
+        postType = 'text';
+        const startTextFallback = Date.now();
+        await sendMessage(caption);
+        console.log(`[FALLBACK 2 DONE] Sent TEXT in ${Date.now() - startTextFallback}ms`);
+      }
     } else {
       // Чт / Пт / Вс → Текст
       postType = 'text';
