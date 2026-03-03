@@ -10,8 +10,8 @@ import {
 import { sendMessage, sendPhoto, sendVideo } from '@/lib/telegram';
 import { savePostHistory } from '@/lib/neon';
 
-// Увеличиваем лимит выполнения Vercel Function (работает на Pro-тарифе)
-export const maxDuration = 120;
+// Увеличиваем лимит выполнения Vercel Function (до 300 секунд)
+export const maxDuration = 300;
 
 export async function GET(req: NextRequest) {
   console.log('[START] process-next-post handler started');
