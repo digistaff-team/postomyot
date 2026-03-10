@@ -1,7 +1,11 @@
 import { GoogleAuth } from 'google-auth-library';
 
 // Читаем credentials из переменной окружения GOOGLE_SERVICE_ACCOUNT_KEY
-const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY!);
+const credentialsJson = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
+if (!credentialsJson) {
+  throw new Error('GOOGLE_SERVICE_ACCOUNT_KEY environment variable is not set');
+}
+const credentials = JSON.parse(credentialsJson);
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID!;
 const BASE = 'https://sheets.googleapis.com/v4/spreadsheets';
 const SHEET = encodeURIComponent('Лист1');
