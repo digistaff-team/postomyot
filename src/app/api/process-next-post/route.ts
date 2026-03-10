@@ -1,14 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { readNextRow, deleteRow2 } from '@/lib/google-sheets';
-import {
-  generatePostText,
-  generateTitle,
-  generateImagePrompt,
-  generateHook,
-  generateImage,
-} from '@/lib/protalk';
+import { generatePostText, generateTitle } from '@/lib/openai';
+import { generateImage } from '@/lib/kie';
 import { sendMessage, sendPhoto, sendVideo } from '@/lib/telegram';
 import { savePostHistory } from '@/lib/neon';
+
+// Генерирует промпт для KIE.ai Z-Image на основе темы
+async function generateImagePromptForKIE(topic: string): Promise<string> {
+  // Создаём развёрнутый промпт на английском для генерации изображения
+  // Z-Image лучше понимает детальные описания с визуальными элементами
+  return `Professional photorealistic image for Telegram post about: ${topic}. ` +
+    `Style: modern, clean composition with natural lighting. ` +
+    `Focus on main subject, professional quality, suitable for social media. ` +
+    `No text in image, no watermarks, high quality photography.`;
+}
 
 // Увеличиваем лимит выполнения Vercel Function (до 300 секунд)
 export const maxDuration = 300;
@@ -77,19 +82,16 @@ export async function GET(req: NextRequest) {
       }
 
       try {
-        console.log(`[STEP 3A] Generating image prompt and hook...`);
+        console.log(`[STEP 3A] Generating image prompt for KIE.ai...`);
         const start3a = Date.now();
-        const [imgPrompt, hook] = await Promise.all([
-          generateImagePrompt(topic),
-          generateHook(topic),
-        ]);
-        console.log(`[STEP 3A DONE] Prompt & hook generated in ${Date.now() - start3a}ms`);
-        console.log(`  Prompt: ${imgPrompt.slice(0, 50)}...`);
-        console.log(`  Hook: ${hook}`);
+        // Создаём подробный промпт для генерации изображения на основе темы
+        const imgPrompt = await generateImagePromptForKIE(topic);
+        console.log(`[STEP 3A DONE] Prompt generated in ${Date.now() - start3a}ms`);
+        console.log(`  Prompt: ${imgPrompt.slice(0, 100)}...`);
 
-        console.log(`[STEP 3B] Generating image via ProTalk...`);
+        console.log(`[STEP 3B] Generating image via KIE.ai...`);
         const start3b = Date.now();
-        const imageUrl = await generateImage(imgPrompt, hook);
+        const imageUrl = await generateImage(imgPrompt, '4:3', 90000);
         console.log(`[STEP 3B DONE] Image generated in ${Date.now() - start3b}ms. URL: ${imageUrl}`);
 
         console.log(`[STEP 3C] Sending PHOTO to Telegram...`);
