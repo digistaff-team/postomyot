@@ -1,6 +1,10 @@
 import { GoogleAuth } from 'google-auth-library';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 
-const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON!);
+// Читаем credentials из файла .env.google.json
+const credentialsPath = join(process.cwd(), '.env.google.json');
+const credentials = JSON.parse(readFileSync(credentialsPath, 'utf-8'));
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID!;
 const BASE = 'https://sheets.googleapis.com/v4/spreadsheets';
 const SHEET = encodeURIComponent('Лист1');
