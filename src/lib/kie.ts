@@ -2,16 +2,12 @@ const KIE_BASE = 'https://api.kie.ai';
 const API_KEY = process.env.KIE_API_KEY!;
 
 const HEADERS = {
-  'Authorization': `Bearer ${API_KEY}`,
+  Authorization: `Bearer ${API_KEY}`,
   'Content-Type': 'application/json',
 };
 
-// Z-Image модель для генерации изображений
-const MODEL = 'z-image';
+const MODEL = 'nano-banana-2';
 
-/**
- * Создаёт задачу на генерацию изображения
- */
 async function createImageTask(prompt: string, aspectRatio: string = '4:3'): Promise<string> {
   console.log(`[KIE] Creating image generation task for prompt: ${prompt.slice(0, 50)}...`);
   const start = Date.now();
@@ -24,7 +20,10 @@ async function createImageTask(prompt: string, aspectRatio: string = '4:3'): Pro
       input: {
         prompt,
         aspect_ratio: aspectRatio,
-        quality: 'basic',
+        resolution: '1K',
+        output_format: 'jpg',
+        google_search: false,
+        image_input: [],
       },
     }),
   });
@@ -48,14 +47,11 @@ async function createImageTask(prompt: string, aspectRatio: string = '4:3'): Pro
   return taskId;
 }
 
-/**
- * Получает статус задачи и URL изображения
- */
 async function getTaskDetails(taskId: string): Promise<{ status: string; imageUrl?: string }> {
   console.log(`[KIE] Getting task details for: ${taskId}`);
   const start = Date.now();
 
-  const res = await fetch(`${KIE_BASE}/api/v1/jobs/getTaskDetails?taskId=${taskId}`, {
+  const res = await fetch(`${KIE_BASE}/api/v1/jobs/recordInfo?taskId=${taskId}`, {
     headers: HEADERS,
   });
 
@@ -68,17 +64,37 @@ async function getTaskDetails(taskId: string): Promise<{ status: string; imageUr
   }
 
   const data = await res.json();
-  const status = data.data?.status;
-  const imageUrl = data.data?.output?.image_url || data.data?.output?.imageUrl;
+  const rawState = data.data?.state;
+  let imageUrl: string | undefined;
 
-  console.log(`[KIE] Task status: ${status}${imageUrl ? `, image_url: ${imageUrl.slice(0, 50)}...` : ''}`);
+  const resultJsonRaw = data.data?.resultJson;
+  if (typeof resultJsonRaw === 'string' && resultJsonRaw.trim() !== '') {
+    try {
+      const parsed = JSON.parse(resultJsonRaw);
+      imageUrl = parsed?.resultUrls?.[0] || parsed?.images?.[0]?.url;
+    } catch {
+      console.warn('[KIE] Failed to parse resultJson, continuing without parsed URL');
+    }
+  }
 
-  return { status, imageUrl };
+  imageUrl = imageUrl || data.data?.output?.image_url || data.data?.output?.imageUrl;
+
+  const normalizedStatus =
+    rawState === 'success'
+      ? 'SUCCESS'
+      : rawState === 'fail'
+        ? 'FAILED'
+        : rawState === 'generating' || rawState === 'queuing' || rawState === 'waiting'
+          ? 'PROCESSING'
+          : rawState || data.data?.status;
+
+  console.log(
+    `[KIE] Task status: ${normalizedStatus}${imageUrl ? `, image_url: ${imageUrl.slice(0, 50)}...` : ''}`
+  );
+
+  return { status: normalizedStatus, imageUrl };
 }
 
-/**
- * Получает временную ссылку на скачивание изображения
- */
 async function getDownloadUrl(imageUrl: string): Promise<string> {
   console.log(`[KIE] Getting download URL for: ${imageUrl.slice(0, 50)}...`);
   const start = Date.now();
@@ -108,37 +124,37 @@ async function getDownloadUrl(imageUrl: string): Promise<string> {
   return downloadUrl;
 }
 
-/**
- * Генерирует изображение через KIE.ai с polling статуса
- * @param prompt - Промпт для генерации
- * @param aspectRatio - Соотношение сторон (по умолчанию 4:3)
- * @param maxWaitTime - Максимальное время ожидания в мс (по умолчанию 60 секунд)
- */
-export async function generateImage(prompt: string, aspectRatio: string = '4:3', maxWaitTime: number = 60000): Promise<string> {
+export async function generateImage(
+  prompt: string,
+  aspectRatio: string = '4:3',
+  maxWaitTime: number = 60000
+): Promise<string> {
   console.log(`[KIE] Starting image generation: "${prompt.slice(0, 50)}..."`);
   const totalStart = Date.now();
 
-  // Шаг 1: Создание задачи
   const taskId = await createImageTask(prompt, aspectRatio);
 
-  // Шаг 2: Polling статуса
-  const pollingInterval = 3000; // 3 секунды
+  const pollingInterval = 3000;
   const startTime = Date.now();
 
   while (Date.now() - startTime < maxWaitTime) {
-    await new Promise(resolve => setTimeout(resolve, pollingInterval));
+    await new Promise((resolve) => setTimeout(resolve, pollingInterval));
 
     const { status, imageUrl } = await getTaskDetails(taskId);
 
     if (status === 'SUCCESS' || status === 'COMPLETED') {
-      if (imageUrl) {
-        // Шаг 3: Получение временной ссылки на скачивание
-        const downloadUrl = await getDownloadUrl(imageUrl);
-        console.log(`[KIE] Image generation completed in ${Date.now() - totalStart}ms`);
-        return downloadUrl;
-      } else {
+      if (!imageUrl) {
         throw new Error('Task completed but no image URL returned');
       }
+
+      if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+        console.log(`[KIE] Image generation completed in ${Date.now() - totalStart}ms`);
+        return imageUrl;
+      }
+
+      const downloadUrl = await getDownloadUrl(imageUrl);
+      console.log(`[KIE] Image generation completed in ${Date.now() - totalStart}ms`);
+      return downloadUrl;
     }
 
     if (status === 'FAILED' || status === 'ERROR') {

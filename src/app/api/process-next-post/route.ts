@@ -9,10 +9,12 @@ import { savePostHistory } from '@/lib/neon';
 async function generateImagePromptForKIE(topic: string): Promise<string> {
   // Создаём развёрнутый промпт на английском для генерации изображения
   // Z-Image лучше понимает детальные описания с визуальными элементами
-  return `Professional photorealistic image for Telegram post about: ${topic}. ` +
-    `Style: modern, clean composition with natural lighting. ` +
-    `Focus on main subject, professional quality, suitable for social media. ` +
-    `No text in image, no watermarks, high quality photography.`;
+  return `Cinematic photorealistic masterpiece for Telegram post about: ${topic}. ` +
+    `High-resolution, ultra-detailed, professional studio photography quality. ` +
+    `Style: modern, minimalist, clean aesthetic, with soft volumetric studio lighting. ` +
+    `Sharp focus on the main subject, shallow depth of field. ` +
+    `Perfect for social media. ` +
+    `Absolutely no text, no watermarks, no distorted features. 8K, intricate details.`;
 }
 
 // Увеличиваем лимит выполнения Vercel Function (до 300 секунд)
@@ -100,11 +102,21 @@ export async function GET(req: NextRequest) {
         console.log(`[STEP 3C DONE] Sent PHOTO in ${Date.now() - start3c}ms`);
       } catch (imgError) {
         console.error(`[IMAGE ERROR] Failed to generate/send photo:`, imgError);
-        console.log(`[FALLBACK 2] Falling back to TEXT post...`);
-        postType = 'text';
-        const startTextFallback = Date.now();
-        await sendMessage(caption);
-        console.log(`[FALLBACK 2 DONE] Sent TEXT in ${Date.now() - startTextFallback}ms`);
+        console.log(`[FALLBACK 2] Trying backup image provider...`);
+        try {
+          const backupUrl = `https://picsum.photos/seed/${encodeURIComponent(topic)}/1280/960`;
+          const startBackup = Date.now();
+          await sendPhoto(backupUrl, caption);
+          console.log(`[FALLBACK 2 DONE] Sent backup PHOTO in ${Date.now() - startBackup}ms`);
+          postType = 'photo';
+        } catch (backupErr) {
+          console.error(`[BACKUP IMAGE ERROR] Failed to send backup image:`, backupErr);
+          console.log(`[FALLBACK 3] Falling back to TEXT post...`);
+          postType = 'text';
+          const startTextFallback = Date.now();
+          await sendMessage(caption);
+          console.log(`[FALLBACK 3 DONE] Sent TEXT in ${Date.now() - startTextFallback}ms`);
+        }
       }
     } else {
       // Чт / Пт / Вс → Текст

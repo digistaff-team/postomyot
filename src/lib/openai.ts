@@ -1,7 +1,38 @@
 import OpenAI from 'openai';
 
+function getOpenAiApiKey(): string {
+  const key = process.env.OPENAI_API_KEY?.trim();
+
+  if (!key) {
+    throw new Error(
+      '[Config] OPENAI_API_KEY is missing. Set it in .env.local as OPENAI_API_KEY=sk-... and restart the server.'
+    );
+  }
+
+  const looksLikeEnvPath =
+    key.includes('.env') ||
+    key.includes('\\') ||
+    key.includes('/') ||
+    /^[A-Za-z]:/.test(key);
+
+  if (looksLikeEnvPath) {
+    throw new Error(
+      `[Config] OPENAI_API_KEY looks like a file path ("${key}"), not an API key. ` +
+      'Use the actual OpenAI key value (starts with "sk-"), not a path to .env.'
+    );
+  }
+
+  if (!key.startsWith('sk-')) {
+    throw new Error(
+      '[Config] OPENAI_API_KEY has an invalid format. Expected an OpenAI key that starts with "sk-".'
+    );
+  }
+
+  return key;
+}
+
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY!,
+  apiKey: getOpenAiApiKey(),
 });
 
 const MODEL = 'gpt-4o-mini';
@@ -23,10 +54,13 @@ export async function generatePostText(topic: string): Promise<string> {
           'Требования:\n' +
           '- До 800 символов\n' +
           '- Эмодзи умеренно, по делу\n' +
+          '- Рассказывай истории, приводи примеры, если уместно\n' +
           '- БЕЗ markdown-разметки: никаких *, _, #, `, ~\n' +
           '- БЕЗ технических пояснений в конце (никаких "(347 символов)")\n' +
           '- Пиши обычным текстом без форматирования\n' +
-          '- Живой, вовлекающий стиль',
+          '- В конце призыв к действию - попробовать именно в твоём бизнесе, чтобы узнать, как именно у тебя можно это применить\n' +
+          '- Добавляй всегда СТРОГО обязательно в конце ссылку https://client-factory-score.lovable.app \n' +
+          '- Используй живой, вовлекающий стиль речи, чтобы читатели чувствовали, что ты говоришь прямо с ними',
       },
       {
         role: 'user',
