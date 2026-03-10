@@ -5,12 +5,12 @@
 [![Vercel](https://img.shields.io/badge/Vercel-Deploy-orange.svg?style=flat&logo=vercel)](https://vercel.com)
 [![Telegram](https://img.shields.io/badge/Telegram-Bot-purple.svg?style=flat&logo=telegram)](https://core.telegram.org/bots)
 
-**Postomyot Bot** — автоматизированный контент-фабрика для Telegram-каналов. Бот читает темы из Google Sheets, генерирует посты на русском языке (текст via ProTalk API, изображения/видео via Z-Image), публикует по расписанию или вручную. Активно фиксит таймауты, обеспечивает чистый русский текст без сленга/маркдауна. Развёрнут на Vercel с Neon DB для логов.
+**Postomyot Bot** — автоматизированный контент-фабрика для Telegram-каналов. Бот читает темы из Google Sheets, генерирует посты на русском языке (текст via OpenAI GPT-4o-mini, изображения via KIE.ai Z-Image), публикует по расписанию или вручную. Развёрнут на Vercel с Neon DB для логов.
 
 ## ✨ Функции
-- **Автогенерация постов**: Темы из Sheets → AI-текст (ProTalk /ask) → Изображение/видео (Z-Image).
+- **Автогенерация постов**: Темы из Sheets → AI-текст (OpenAI) → Изображение/видео (KIE.ai Z-Image).
 - **Логика по дням**: Фото по будням, видео по выходным (fallback на фото).
-- **Обработка ошибок**: Таймауты до 300с (Vercel/ProTalk), retry, логирование (Neon DB, console).
+- **Обработка ошибок**: Таймауты до 300с (Vercel), retry, логирование (Neon DB, console).
 - **UI-дашборд**: Простой интерфейс на shadcn/ui + Tailwind для мониторинга/триггера.
 - **Интеграции**: Google Sheets (авторизация service account), Telegram Bot API (fetch), Neon Postgres (serverless).
 - **Оптимизации**: Короткие промпты изображений, стрип маркдауна, счётчик символов опционально.
